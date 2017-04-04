@@ -32,7 +32,7 @@ void printMatrix(double **tab, int tabSize) {
 
 }
 
-void gaussSeidl(double **matrix, double *results, int size) {
+void gaussJordan(double **matrix, double *results, int size) {
 	double temp;
 
 	for (int i = 1; i < size; i++) {
@@ -58,25 +58,20 @@ void gaussSeidl(double **matrix, double *results, int size) {
 
 }
 
-void jacobi(double **matrix, double **inverseMatrix, double *vector, double **results, int size, double epsilon) {
+
+
+void jacobi(double **matrix, double **inverseMatrix, double *diagonal, double **results, int size, double epsilon) {
 	double temp;
 
-	// calculate diagonal^(-1)
+	// calculate 1/D and M = -1/D * (L + U)
 	for (int i = 0; i < size; i++) {
-		if (matrix[i][i] != 0)
-			vector[i] = 1 / matrix[i][i];
-		else
-			throw new exception;
-	}
+		diagonal[i] = 1 / matrix[i][i];		// 1/D
 
-
-	// calculate M = -1/D * (L + U)
-	for (int i = 0; i < size; i++) {
 		for (int j = 0; j < size; j++) {
 			if (i == j)
 				inverseMatrix[i][j] = 0;
 			else
-				inverseMatrix[i][j] = (-1) * (matrix[i][j] * vector[i]);
+				inverseMatrix[i][j] = (-1) * (matrix[i][j] * diagonal[i]);
 		}
 	}
 
@@ -86,22 +81,62 @@ void jacobi(double **matrix, double **inverseMatrix, double *vector, double **re
 		resultInEpsilon = true;
 		for (int i = 0; i < size; i++) {
 			results[i][2] = results[i][1];					// x3 = x2
-			results[i][1] = vector[i] * matrix[i][size];	// x2 = 1/D * Bi
+			results[i][1] = diagonal[i] * matrix[i][size];	// x2 = 1/D * Bi
 
 			for (int j = 0; j < size; j++) {
-				results[i][1] += inverseMatrix[i][j] * results[i][0];	// x2 = 1/M * x1
+				results[i][1] += inverseMatrix[i][j] * results[j][0];	// x2 = 1/M * x1
 			}
 		}
 		for (int i = 0; i < size; i++) {
 			results[i][0] = results[i][1];		// x1 = x2
 
-			if (fabs(results[i][0] - results[i][2]) > epsilon)	// calculate if is not inside: -epsilon < delta < epsilon
+		if (fabs(results[i][0] - results[i][2]) > epsilon)	// calculate if is not inside: -epsilon < delta < epsilon
 				resultInEpsilon = false;
 		}
 		if (resultInEpsilon)
 			break;
 	}
+}
 
+void gaussSeidel(double **matrix, double **inverseMatrix, double *diagonal, double **results, int size, double epsilon) {
+	double temp;
+
+	// calculate 1/D and 1/D * b and 1/D * L and 1/D * U
+	for (int i = 0; i < size; i++) {
+		diagonal[i] = 1 / matrix[i][i];			// 1/D
+		matrix[i][size] *= diagonal[i];			// 1/D * b
+
+		for (int j = 0; j < size; j++) {
+			if (i > j)
+				inverseMatrix[i][j] = matrix[i][j] * diagonal[i];	// 1/D * L
+			else if (i > j)
+				inverseMatrix[i][j] = matrix[i][j] = diagonal[i];	// 1/D * U
+		}
+	}
+
+	bool resultInEpsilon;
+
+	while (true) {
+		resultInEpsilon = true;
+		for (int i = 0; i < size; i++) {
+			results[i][0] = diagonal[i];	// x1 = 1/D * b
+			for (int j = 0; j < i; j++)
+				results[i][0] -= inverseMatrix[i][j] * results[j][0];	// 1/D * L * x
+			for (int j = i + 1; j < size; j++)
+				results[i][0] -= inverseMatrix[i][j] * results[j][0];	// 1/D * U * x
+
+			
+		}
+		for (int i = 0; i < size; i++) {
+			if (fabs(results[i][0] - results[i][1]) > epsilon)
+				resultInEpsilon = false;
+
+			results[i][1] = results[i][0];	// x2 = x1
+		}
+		if (resultInEpsilon)
+			break;
+	}
+	
 }
 
 void copyExtendedMatrix(double **matrix, double **destiny, int size) {
@@ -112,76 +147,86 @@ void copyExtendedMatrix(double **matrix, double **destiny, int size) {
 }
 
 int main() {
-	int size = 5;
+	int size = 8;
 
-	double **matrixGaussSeidl = new double*[size];
+	double **matrixGaussSeidel = new double*[size];
 	double **matrixJacobi = new double*[size];
-	double **matrixGauss = new double*[size];
+	double **matrixGaussJordan = new double*[size];
 	double **matrix = new double*[size];
-	double *resultsGaussSeidl = new double[size];
+	double **resultsGaussSeidel = new double*[size];
 	double **resultsJacobi = new double*[size];
-	double *resultsGauss = new double[size];
+	double *resultsGaussJordan = new double[size];
 	double *vector = new double[size];
 	for (int i = 0; i < size; i++) {
-		matrixGaussSeidl[i] = new double[size + 1];
+		matrixGaussSeidel[i] = new double[size + 1];
 		matrixJacobi[i] = new double[size + 1];
-		matrixGauss[i] = new double[size + 1];
+		matrixGaussJordan[i] = new double[size + 1];
 		matrix[i] = new double[size];
-		resultsJacobi[i] = new double[2];
+		resultsJacobi[i] = new double[3];
+		resultsGaussSeidel[i] = new double[2];
 	}
 
 	for (int i = 0; i < size; i++) {
 		for (int j = 0; j < size + 1; j++) {
-			matrixGaussSeidl[i][j] = 0;
+			matrixGaussSeidel[i][j] = 0;
 			matrix[i][j] = 0;
 		}
 		vector[i] = 0;
 		resultsJacobi[i][0] = 0;
 		resultsJacobi[i][1] = 0;
 		resultsJacobi[i][2] = 0;
+		
+		resultsGaussSeidel[i][0] = 0;
+		resultsGaussSeidel[i][1] = 0;
 	}
 
 
-	createMatrix(matrixGaussSeidl, size, 0, 5);
-	copyExtendedMatrix(matrixGaussSeidl, matrixJacobi, size);
-	copyExtendedMatrix(matrixGaussSeidl, matrixGauss, size);
+	createMatrix(matrixGaussSeidel, size, 0, 5);
+	copyExtendedMatrix(matrixGaussSeidel, matrixJacobi, size);
+	copyExtendedMatrix(matrixGaussSeidel, matrixGaussJordan, size);
 
 
 	//printMatrix(matrixJacobi, size);
 	clock_t Start;
 
 	Start = clock();
-	jacobi(matrixJacobi, matrix, vector, resultsJacobi, size, 1e-12);
+	jacobi(matrixJacobi, matrix, vector, resultsJacobi, size, 1e-16);
 	cout << "Time Difference: " << clock() - Start << endl;
-	cout << endl;
-	printMatrix(matrix, size);
-
-	cout << endl;
-
 	for (int i = 0; i < size; i++)
 		cout << resultsJacobi[i][0] << endl;
+	cout << endl;
+
+	cout << endl;
+
+	Start = clock();
+	
+	gaussSeidel(matrixGaussSeidel, matrix, vector, resultsGaussSeidel, size, 1e-16);
+	for (int i = 0; i < size; i++)
+		cout << resultsGaussSeidel[i][0] << endl;
+
+	cout << "Time Difference: " << clock() - Start << endl;
 
 	//printMatrix(matrix, size);
 	//cout << endl;
 	Start = clock();
-	gaussSeidl(matrixGaussSeidl, resultsGaussSeidl, size);
+	gaussJordan(matrixGaussJordan, resultsGaussJordan, size);
 	//printMatrix(matrix, size);
 	cout << "Time Difference: " << clock() - Start << endl;
+	for (int i = 0; i < size; i++)
+		cout << resultsGaussJordan[i] << endl;
 	cout << endl;
 
-	for (int i = 0; i < size; i++)
-		cout << resultsGaussSeidl[i] << endl;
 
 	for (int i = 0; i < size; i++) {
-		delete[] matrixGaussSeidl[i];
+		delete[] matrixGaussSeidel[i];
 		delete[] matrixJacobi[i];
-		delete[] matrixGauss[i];
+		delete[] matrixGaussJordan[i];
 	}
-	delete[] matrixGaussSeidl;
+	delete[] matrixGaussSeidel;
 	delete[] matrixJacobi;
-	delete[] matrixGauss;
-	delete[] resultsGaussSeidl;
+	delete[] matrixGaussJordan;
+	delete[] resultsGaussSeidel;
 	delete[] resultsJacobi;
-	delete[] resultsGauss;
+	delete[] resultsGaussJordan;
 	return 0;
 }
