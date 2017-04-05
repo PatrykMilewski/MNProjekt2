@@ -101,25 +101,27 @@ void jacobi(double **matrix, double **inverseMatrix, double *diagonal, double **
 void gaussSeidel(double **matrix, double **inverseMatrix, double *diagonal, double **results, int size, double epsilon) {
 	double temp;
 
-	// calculate 1/D and 1/D * b and 1/D * L and 1/D * U
+	// calculate 1/D ; 1/D * b ; 1/D * L ; 1/D * U
 	for (int i = 0; i < size; i++) {
 		diagonal[i] = 1 / matrix[i][i];			// 1/D
 		matrix[i][size] *= diagonal[i];			// 1/D * b
 
 		for (int j = 0; j < size; j++) {
-			if (i > j)
-				inverseMatrix[i][j] = matrix[i][j] * diagonal[i];	// 1/D * L
-			else if (i > j)
-				inverseMatrix[i][j] = matrix[i][j] = diagonal[i];	// 1/D * U
+			if (i != j)
+				inverseMatrix[i][j] = matrix[i][j] * diagonal[i];	// 1/D * L && 1/D * U
+			else
+				inverseMatrix[i][j] = matrix[i][j];					// 
 		}
 	}
 
 	bool resultInEpsilon;
+	int count = 0;
 
 	while (true) {
 		resultInEpsilon = true;
 		for (int i = 0; i < size; i++) {
-			results[i][0] = diagonal[i];	// x1 = 1/D * b
+			results[i][0] = matrix[i][size];	// x1 = 1/D * b
+
 			for (int j = 0; j < i; j++)
 				results[i][0] -= inverseMatrix[i][j] * results[j][0];	// 1/D * L * x
 			for (int j = i + 1; j < size; j++)
@@ -136,7 +138,6 @@ void gaussSeidel(double **matrix, double **inverseMatrix, double *diagonal, doub
 		if (resultInEpsilon)
 			break;
 	}
-	
 }
 
 void copyExtendedMatrix(double **matrix, double **destiny, int size) {
@@ -146,8 +147,22 @@ void copyExtendedMatrix(double **matrix, double **destiny, int size) {
 	}
 }
 
+int checkResults(double *ideal, double **check, int size, double epsilon) {
+	int counter = 0;
+	for (int i = 0; i < size; i++) {
+		if (fabs(ideal[i] - check[i][0]) > epsilon)
+			counter++;
+	}
+	return counter;
+}
+
 int main() {
-	int size = 8;
+
+	// variables and tables initializations
+
+	int size = 3000;
+	clock_t Start;
+	double epsilon = 1e-16, checkEpsilon = 1e-9;
 
 	double **matrixGaussSeidel = new double*[size];
 	double **matrixJacobi = new double*[size];
@@ -185,36 +200,31 @@ int main() {
 	copyExtendedMatrix(matrixGaussSeidel, matrixJacobi, size);
 	copyExtendedMatrix(matrixGaussSeidel, matrixGaussJordan, size);
 
+	Start = clock();
+	jacobi(matrixJacobi, matrix, vector, resultsJacobi, size, epsilon);
+	cout << "Jacobi time difference: " << clock() - Start << endl;
 
-	//printMatrix(matrixJacobi, size);
-	clock_t Start;
 
 	Start = clock();
-	jacobi(matrixJacobi, matrix, vector, resultsJacobi, size, 1e-16);
-	cout << "Time Difference: " << clock() - Start << endl;
-	for (int i = 0; i < size; i++)
-		cout << resultsJacobi[i][0] << endl;
-	cout << endl;
+	gaussSeidel(matrixGaussSeidel, matrix, vector, resultsGaussSeidel, size, epsilon);
+	cout << "Gauss Seidel time difference: " << clock() - Start << endl;
 
-	cout << endl;
 
-	Start = clock();
-	
-	gaussSeidel(matrixGaussSeidel, matrix, vector, resultsGaussSeidel, size, 1e-16);
-	for (int i = 0; i < size; i++)
-		cout << resultsGaussSeidel[i][0] << endl;
-
-	cout << "Time Difference: " << clock() - Start << endl;
-
-	//printMatrix(matrix, size);
-	//cout << endl;
 	Start = clock();
 	gaussJordan(matrixGaussJordan, resultsGaussJordan, size);
-	//printMatrix(matrix, size);
-	cout << "Time Difference: " << clock() - Start << endl;
-	for (int i = 0; i < size; i++)
-		cout << resultsGaussJordan[i] << endl;
-	cout << endl;
+	cout << "Gauss Jordan time difference: " << clock() - Start << endl;
+
+	int temp = checkResults(resultsGaussJordan, resultsJacobi, size, checkEpsilon);
+	if (temp)
+		cout << temp << " of " << size << " Jacobi results are out of epsilon = " << checkEpsilon << endl;
+	else
+		cout << "Jacobi results are inside epsilon = " << checkEpsilon << endl;
+
+	temp = checkResults(resultsGaussJordan, resultsGaussSeidel, size, checkEpsilon);
+	if (temp)
+		cout << temp << " of " << size << " Gauss-Seidel results are out of epsilon = " << checkEpsilon << endl;
+	else
+		cout << "Gauss-Seidel results are inside epsilon = " << checkEpsilon << endl;
 
 
 	for (int i = 0; i < size; i++) {
@@ -222,11 +232,13 @@ int main() {
 		delete[] matrixJacobi[i];
 		delete[] matrixGaussJordan[i];
 	}
+	delete[] matrix;
 	delete[] matrixGaussSeidel;
 	delete[] matrixJacobi;
 	delete[] matrixGaussJordan;
 	delete[] resultsGaussSeidel;
 	delete[] resultsJacobi;
 	delete[] resultsGaussJordan;
+	delete[] vector;
 	return 0;
 }
