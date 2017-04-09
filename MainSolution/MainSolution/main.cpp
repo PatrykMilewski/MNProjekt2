@@ -33,6 +33,11 @@ void printMatrix(double **tab, int tabSize) {
 
 }
 
+void printVector(double *tab, int size) {
+	for (int i = 0; i < size; i++)
+		cout << tab[i] << endl;
+}
+
 void gaussJordan(double **matrix, double *results, int size) {
 	double temp;
 
@@ -59,11 +64,28 @@ void gaussJordan(double **matrix, double *results, int size) {
 
 }
 
+double calculateResiduum(double **matrix, double *vector, int size) {
+	double *tab = new double[size];
+	double sum = 0;
+
+	for (int i = 0; i < size; i++)
+		tab[i] = 0;
+
+	for (int i = 0; i < size; i++) {
+		for (int j = 0; j < size; j++)
+			tab[i] += matrix[i][j] * vector[j];
+		tab[i] -= matrix[i][size];
+		tab[i] *= tab[i];
+	}
+
+	for (int i = 0; i < size; i++)
+		sum += tab[i];
+
+	return sqrt(sum);
+}
 
 
 int jacobi(double **matrix, double **inverseMatrix, double *diagonal, double **results, int size, double epsilon) {
-	double temp;
-
 	// calculate 1/D and M = -1/D * (L + U)
 	for (int i = 0; i < size; i++) {
 		diagonal[i] = 1 / matrix[i][i];		// 1/D
@@ -90,23 +112,21 @@ int jacobi(double **matrix, double **inverseMatrix, double *diagonal, double **r
 			}
 		}
 		for (int i = 0; i < size; i++) {
-			results[i][0] = results[i][1];		// x1 = x2
+			results[i][0] = results[i][1];					// x1 = x2
 
-		if (fabs(results[i][0] - results[i][2]) > epsilon)	// calculate if is not inside: -epsilon < delta < epsilon
+		if (fabs(results[i][0] - results[i][2]) > epsilon)	// check if results outside of epsilon
 				resultInEpsilon = false;
 		}
 		iterationsAmount++;
 		if (resultInEpsilon)
 			break;
-		if (iterationsAmount > 1000)
+		if (iterationsAmount > 1000)						// max iterations break
 			break;
 	}
 	return iterationsAmount;
 }
 
 int gaussSeidel(double **matrix, double **inverseMatrix, double *diagonal, double **results, int size, double epsilon) {
-	double temp;
-
 	// calculate 1/D ; 1/D * b ; 1/D * L ; 1/D * U
 	for (int i = 0; i < size; i++) {
 		diagonal[i] = 1 / matrix[i][i];			// 1/D
@@ -116,7 +136,7 @@ int gaussSeidel(double **matrix, double **inverseMatrix, double *diagonal, doubl
 			if (i != j)
 				inverseMatrix[i][j] = matrix[i][j] * diagonal[i];	// 1/D * L && 1/D * U
 			else
-				inverseMatrix[i][j] = matrix[i][j];					// 
+				inverseMatrix[i][j] = matrix[i][j];					// A
 		}
 	}
 
@@ -136,15 +156,15 @@ int gaussSeidel(double **matrix, double **inverseMatrix, double *diagonal, doubl
 			
 		}
 		for (int i = 0; i < size; i++) {
-			if (fabs(results[i][0] - results[i][1]) > epsilon)
+			if (fabs(results[i][0] - results[i][1]) > epsilon)	// check if results outside of epsilon
 				resultInEpsilon = false;
 
-			results[i][1] = results[i][0];	// x2 = x1
+			results[i][1] = results[i][0];						// x2 = x1
 		}
 		iterationsAmount++;
 		if (resultInEpsilon)
 			break;
-		if (iterationsAmount > 1000)
+		if (iterationsAmount > 1000)							// max iterations break
 			break;
 	}
 	return iterationsAmount;
@@ -157,6 +177,7 @@ void copyExtendedMatrix(double **matrix, double **destiny, int size) {
 	}
 }
 
+// function made for checking if all results are in given epsilon
 int checkResults(double *ideal, double **check, int size, double epsilon) {
 	int counter = 0;
 	for (int i = 0; i < size; i++) {
@@ -171,6 +192,7 @@ int main() {
 	const int testsAmount = 11;
 	int tabTime[testsAmount * 3];
 	int tabIterations[testsAmount * 3];
+	double residuum;
 	int size = 903;
 	clock_t Start, Stop;
 	double epsilon = 1e-9;
@@ -228,6 +250,7 @@ int main() {
 		gaussJordan(matrixGaussJordan, resultsGaussJordan, size);
 		tabIterations[i + 2 * testsAmount] = 1;
 		Stop = clock() - Start;
+		residuum = calculateResiduum(matrixGaussJordan, resultsGaussJordan, size);
 		tabTime[i + 2 * testsAmount] = (int)Stop;
 
 		for (int i = 0; i < size; i++) {
@@ -247,11 +270,14 @@ int main() {
 	int count = 0;
 	fstream output("results.txt", fstream::out);
 	for (int i = 0; i < testsAmount * 3; i++) {
-		if (i % testsAmount != 0) {
+		if (i % testsAmount != 0) {										// delete first result from every test
 			output << tabTime[i] << "\t" << tabIterations[i] << endl;
 			count++;
 		}
 	}
+	output << "Residuum: " << residuum << endl;
+	output.flush();
+	output.close();
 
 	return 0;
 }
